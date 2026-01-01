@@ -1,0 +1,129 @@
+\ Extraced current source of the editor from blocks.fb
+\ Changed comments that did not have a space before the
+\ closing ) as that breaks the highlighting in sublime
+\ text.
+
+\ Screen 1 not modified
+\ Starting Forth editor
+forth marker empty
+only forth definitions vocabulary editor
+also editor definitions
+2 7 thru
+only forth definitions also editor
+: l  l ;
+: edit ( n )  scr ! l ;
+: lx  editor lx ;
+only forth also definitions
+: show ( last first )  1+ swap ?do i list cr cr loop ;
+8 load  \ print to forth.txt via show
+
+
+\ Screen 2 not modified
+\ editor
+variable r#
+create ibuf $100 allot
+create fbuf $100 allot
+: rvson  $1b emit ." [7m" ;
+: rvsoff   $1b emit ." [0m" ;
+: line# ( - n )  r# @ 64 / ;
+: char# ( - n )  r# @ 64 mod ;
+: rest ( - n )  64 char# - ;
+: hi  char# 3 + line# 1+ at-xy rvson
+   scr @ block r# @ + rest type rvsoff 0 17 at-xy ;
+
+
+\ Screen 3 not modified
+\ editor
+: l  page scr @ list editor hi .s ;
+: wipe  scr @ block 1024 blank update r# off l ;
+: insert ( string length buffer size )
+   rot over min >r r@ - over dup r@ +
+   rot move r> move ;
+: delete ( buffer size count )
+   over min >r r@ - dup 0> if
+      2dup swap dup r@ + -rot swap move
+   then + r> blank ;
+: 'rest ( - a u )  scr @ block 1024 r# @ /string ;
+: 'line ( - a u )  'rest 1- 63 and 1+ ;
+: 'parse ( buf - a u )  >r 0 parse dup
+   0= if 2drop r> count else 2dup r> place then ;
+
+
+\ Screen 4 not modified
+ 0 \ editor
+: >buf ( a - )  >r 0 parse dup if 2dup r@ place then
+   2drop r> drop ;
+: >ibuf  ibuf >buf ;  : >fbuf  fbuf >buf ;
+: home  r# @ dup 63 and - r# ! l ;
+: end  home 'rest drop 64 -trailing r# +! drop l ;
+: n  1 scr +! r# off ;
+: b  -1 scr @ + 0 max scr ! r# off ;
+: t ( n )  0 max 15 min 64 * r# ! l ;
+: p  line# t   r# @ scr @ block r# @ + 64 blank
+   >ibuf ibuf count dup if 2dup 'line insert update then
+   2drop r# ! update l ;
+: u  home 'rest 64 - over 64 + over insert line# 1+ t p ;
+
+
+\ Screen 5 not modified
+\ editor
+: i  ibuf 'parse 'line insert update l ;
+: (f) ( - flag )  >fbuf 'rest 1 /string fbuf count search if
+      nip 1024 swap - r# ! l false exit
+   then 2drop l true ;
+: f  (f) if ." none " then ;
+: e  'rest drop rest fbuf c@ delete update l ;
+: d  f e ;    : r  e i ;
+: x  home 'line ibuf place 'rest 64 delete update l ;
+: k  ibuf count pad place  fbuf count ibuf place
+   pad count ibuf place ;
+: till  r# @ >r 'rest drop rest f
+   r# @ fbuf c@ + r@ - delete  r> r# ! l ;
+
+
+\ Screen 6 not modified
+ 0 \ editor
+2variable 'other 0 0 'other 2!
+: other ( n )  0 'other 2! ;
+: o  scr @ r# @ 'other 2@  r# ! scr ! 'other 2! l ;
+: s ( n - /n )  >r  begin (f) while
+      scr @ r@ = if r> drop ." none " exit then
+      scr @ r@ u< if n else b then l
+   repeat r> l ;
+: g ( block line )  home r# @ -64 + 0 max >r
+   swap other o 64 * r# ! x o r> r# ! u ;
+ copy ( n )  other o 0 r# ! 'rest
+   o 'rest drop swap move update l ;
+
+
+\ Screen 7 not modified
+\ editor
+: lx  page scr @ 60 / 60 * 60 bounds
+   do 3 0 do [ forth ] i [ editor ] j + dup 3 .r
+      space dup scr @ = if rvson then block 20 type rvsoff
+   loop cr 3 +loop ;
+: nx  60 scr +! lx ;
+: bx  scr @ 60 - 0 max scr ! lx ;
+: >  r# @ 1+ 1023 min r# ! l ;
+: <  r# @ 1- 0 max r# ! l ;
+: ^  r# @ 64 - 0 max r# ! l ;
+: v  r# @ 64 + 1023 min r# ! l ;
+
+
+\ Screen 8 not modified
+\ printing blocks
+: open-print ( - n )  s" forth.txt" w/o create-file throw ;
+: close-print ( n )  close-file throw ;
+: print ( start end )  swap
+   outfile-id >r open-print to outfile-id
+   do i dup list cr cr 1+ dup list cr cr 1+ list
+      8 0 do cr loop 3 +loop
+   outfile-id close-print r> to outfile-id ;
+
+
+
+
+
+
+
+
